@@ -12,6 +12,7 @@ import org.bukkit.event.Listener
 import org.bukkit.event.enchantment.EnchantItemEvent
 import org.bukkit.event.enchantment.PrepareItemEnchantEvent
 import org.bukkit.event.player.PlayerQuitEvent
+import org.bukkit.event.player.PlayerJoinEvent
 import org.bukkit.inventory.meta.EnchantmentStorageMeta
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -32,6 +33,13 @@ object EnchantingTableSupport : Listener {
     private val prepared = ConcurrentHashMap<UUID, PreparedEnchantingTable>()
 
     @EventHandler
+    fun onJoin(event: PlayerJoinEvent) {
+        if (plugin.configYml.getBool("enchanting-table.enabled") && event.player.enchantmentSeed == 0) {
+            event.player.enchantmentSeed = Random.nextInt(1, Int.MAX_VALUE)
+        }
+    }
+
+    @EventHandler
     fun onLeave(event: PlayerQuitEvent) {
         prepared.remove(event.player.uniqueId)
     }
@@ -50,8 +58,19 @@ object EnchantingTableSupport : Listener {
             }
         }
         val bonus = event.enchantmentBonus.coerceAtMost(16)
-        val random = Random(item.hashCode() + player.world.seed.hashCode() + player.enchantmentSeed)
-        val pool = tableEnchantCandidates(player).filter { it.canEnchant(item, emptyList()) }
+        // The core reinitializes a saved zero seed on login. Initialize it once
+        // here so a new player cannot reroll this round by reconnecting.
+        if (player.enchantmentSeed == 0) {
+            player.enchantmentSeed = Random.nextInt(1, Int.MAX_VALUE)
+        }
+        // Names, durability and other mutable metadata must not reroll offers.
+        // Use a stable key (not enum identity hash), independent of the world.
+        val random = Random(item.type.key.toString().hashCode() + player.enchantmentSeed)
+        // eco's Set.copyOf registry order is randomized between JVMs. A stable
+        // seed needs stable candidate order too, including rarity-group order.
+        val pool = tableEnchantCandidates(player)
+            .filter { it.canEnchant(item, emptyList()) }
+            .sortedWith(compareBy({ it.enchantment.key.namespace }, { it.enchantment.key.key }))
 
         val offers = (0..2).map { index ->
             // A malformed/zero-weight rarity must not leave an empty button.
@@ -86,14 +105,16 @@ object EnchantingTableSupport : Listener {
         prepared[player.uniqueId] = PreparedEnchantingTable(bonus, offers)
     }
 
-    @EventHandler
+    @EventHandler(ignoreCancelled = true)
     fun onEnchant(event: EnchantItemEvent) {
         if (!plugin.configYml.getBool("enchanting-table.enabled")) {
             return
         }
 
         val player = event.enchanter
-        val state = prepared.remove(player.uniqueId) ?: return
+        // A later listener can cancel this attempt. Keep the hint for a retry;
+        // the next prepare replaces it, and quitting removes it.
+        val state = prepared[player.uniqueId] ?: return
         val hint = state.offers.getOrNull(event.whichButton()) ?: return
         val item = event.item.clone()
         val isExtraEnchantable = ExtraItemSupport.extraEnchantableItems.any { it.matches(item) }

@@ -1,0 +1,12 @@
+// Reuse the dev bundle used by the delivered 2026.27-1 baseline instead of
+// resolving a newer dynamic 26.2.build.+ while reproducing this narrow repair.
+allprojects {
+    configurations.configureEach {
+        resolutionStrategy.eachDependency {
+            if (requested.group == 'io.papermc.paper' && requested.name == 'dev-bundle'
+                    && requested.version == '26.2.build.+') {
+                useVersion('26.2.build.111-stable')
+            }
+        }
+    }
+}

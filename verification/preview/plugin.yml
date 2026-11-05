@@ -1,0 +1,9 @@
+name: PreviewProbe
+version: 1
+main: preview.PreviewProbe
+api-version: '1.21.11'
+folia-supported: true
+depend: [EcoEnchants, FXEnchant]
+commands:
+  ep:
+    permission: previewprobe.admin

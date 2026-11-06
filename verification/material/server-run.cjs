@@ -1,0 +1,10 @@
+const fs=require('node:fs'),http=require('node:http'),{spawn}=require('node:child_process');
+const root='E:/codex-build/eco-preview-validation-20261106';
+const tag=process.argv[2]||'run';
+const log=fs.createWriteStream(`E:/codex-build/eco-material-validation-20261106/evidence/${tag}-server.log`);
+const p=spawn('D:/java/bin/java.exe',['-Dterminal.jline=false','-Dterminal.ansi=false','-Xms512M','-Xmx2G','-javaagent:core-fixes/Shiroha-AdvancementOwnerFix-1.jar','-jar','server.jar','nogui'],{cwd:`${root}/server`,windowsHide:true,stdio:['pipe','pipe','pipe']});
+fs.writeFileSync(`E:/codex-build/eco-material-validation-20261106/test-java.pid`,String(p.pid));
+for(const s of [p.stdout,p.stderr])s.on('data',b=>{log.write(b);const t=b.toString();if(/Done \(|PREVIEW|ERROR|Exception|Failed|Stopping|Saving players/.test(t))process.stdout.write(t);});
+const control=http.createServer((req,res)=>{let body='';req.on('data',d=>body+=d);req.on('end',()=>{p.stdin.write(body+'\n');res.end('accepted');});}).listen(25687,'127.0.0.1');
+process.stdin.on('data',b=>p.stdin.write(b));
+p.on('exit',code=>{control.close();log.end();console.log('SERVER_EXIT',code);process.exitCode=code||0;});

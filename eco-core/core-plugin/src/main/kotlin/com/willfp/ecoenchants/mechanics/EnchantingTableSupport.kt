@@ -64,8 +64,9 @@ object EnchantingTableSupport : Listener {
             player.enchantmentSeed = Random.nextInt(1, Int.MAX_VALUE)
         }
         // Names, durability and other mutable metadata must not reroll offers.
-        // Use a stable key (not enum identity hash), independent of the world.
-        val random = Random(item.type.key.toString().hashCode() + player.enchantmentSeed)
+        // Ordinary tiers share a stable equipment class, independent of world.
+        // Eligibility still uses the untouched real item below.
+        val random = Random(enchantingPreviewType(item.type).hashCode() + player.enchantmentSeed)
         // eco's Set.copyOf registry order is randomized between JVMs. A stable
         // seed needs stable candidate order too, including rarity-group order.
         val pool = tableEnchantCandidates(player)
@@ -174,6 +175,23 @@ object EnchantingTableSupport : Listener {
             }
         }
     }
+}
+
+private val toolTiers = setOf("wooden", "stone", "copper", "iron", "golden", "diamond", "netherite")
+private val toolClasses = setOf("sword", "pickaxe", "axe", "shovel", "hoe", "spear")
+private val armorTiers = setOf("leather", "chainmail", "copper", "iron", "golden", "diamond", "netherite", "turtle")
+private val armorClasses = setOf("helmet", "chestplate", "leggings", "boots")
+
+internal fun enchantingPreviewType(material: Material): String {
+    val key = material.key
+    val name = key.key
+    val split = name.indexOf('_')
+    if (key.namespace != "minecraft" || split < 0) return key.toString()
+    val tier = name.substring(0, split)
+    val equipment = name.substring(split + 1)
+    val grouped = (tier in toolTiers && equipment in toolClasses) ||
+        (tier in armorTiers && equipment in armorClasses)
+    return if (grouped) "ecoenchants:preview/$equipment" else key.toString()
 }
 
 object ExtraItemSupport {

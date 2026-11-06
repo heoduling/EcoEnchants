@@ -38,6 +38,7 @@ public final class PreviewProbe extends JavaPlugin implements Listener {
                 switch(args[0]) {
                     case "setup" -> p.teleportAsync(new Location(p.getWorld(),8.5,101,11.5,180,0)).thenAccept(ok->{if(ok)p.getScheduler().execute(this,()->setup(p),null,1);});
                     case "matrix" -> matrix(p);
+                    case "families" -> families(p);
                     case "boundaries" -> boundaries(p);
                     case "extra" -> {p.getInventory().setItem(4,new ItemStack(Material.SHIELD));log("EXTRA",state(p));}
                     case "state" -> log("STATE",state(p));
@@ -113,6 +114,25 @@ public final class PreviewProbe extends JavaPlugin implements Listener {
         var e=new PrepareItemEnchantEvent(p,(org.bukkit.inventory.view.EnchantmentView)view,p.getWorld().getBlockAt(8,101,8),item,offers,bonus);
         EnchantingTableSupport.INSTANCE.onPrepare(e);
         return sig(e.getOffers());
+    }
+    void families(Player p) {
+        int seed=p.getEnchantmentSeed();p.setEnchantmentSeed(123456789);
+        var view=p.openEnchanting(new Location(p.getWorld(),8,101,8),true);
+        List<Object> result=new ArrayList<>();
+        for(String family:List.of("sword","pickaxe","axe","shovel","hoe","spear","helmet","chestplate","leggings","boots")) {
+            var tiers=List.of("sword","pickaxe","axe","shovel","hoe","spear").contains(family)?
+                List.of("wooden","stone","copper","iron","golden","diamond","netherite"):
+                List.of("leather","chainmail","copper","iron","golden","diamond","netherite");
+            Set<List<String>> pools=new HashSet<>(),hints=new HashSet<>();List<Object> items=new ArrayList<>();
+            for(String tier:tiers) {
+                var type=Material.matchMaterial(tier+"_"+family);if(type==null)throw new AssertionError("Missing material "+tier+"_"+family);
+                ItemStack item=new ItemStack(type);
+                var pool=AiyatsbusEnchantPoolKt.tableEnchantCandidates(p).stream().filter(c->c.canEnchant(item,List.of())).map(c->c.getEnchantment().getKey().toString()).sorted().toList();
+                var hint=prepare(p,view,item,15);pools.add(pool);hints.add(hint);items.add(Map.of("material",type.name(),"pool",pool,"hint",hint));
+            }
+            result.add(Map.of("family",family,"poolVariants",pools.size(),"previewVariants",hints.size(),"items",items));
+        }
+        p.closeInventory();p.setEnchantmentSeed(seed);log("FAMILIES",Map.of("seed",123456789,"groups",result));
     }
     void boundaries(Player p) {
         int saved=p.getEnchantmentSeed();p.setEnchantmentSeed(123456789);

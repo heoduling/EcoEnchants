@@ -14,6 +14,7 @@ import com.willfp.ecoenchants.plugin
 import com.willfp.ecoenchants.target.EnchantmentTargets
 import com.willfp.ecoenchants.target.EnchantmentTargets.isEnchantable
 import com.willfp.libreforge.ItemProvidedHolder
+import com.willfp.libreforge.Holder
 import org.bukkit.Material
 import org.bukkit.entity.Player
 import org.bukkit.inventory.ItemFlag
@@ -27,6 +28,9 @@ interface HideStoredEnchantsProxy {
     fun showStoredEnchants(fis: FastItemStack)
     fun areStoredEnchantsHidden(fis: FastItemStack): Boolean
 }
+
+internal fun Holder.hasDisplayConditions(): Boolean =
+    conditions.any { it.showNotMet } || effects.any { effect -> effect.conditions.any { it.showNotMet } }
 
 @Suppress("DEPRECATION")
 object EnchantDisplay : DisplayModule(plugin, DisplayPriority.HIGH) {
@@ -82,13 +86,15 @@ object EnchantDisplay : DisplayModule(plugin, DisplayPriority.HIGH) {
             var showNotMet = false
             if (player != null && enchant is EcoEnchant) {
                 val enchantLevel = enchant.getLevel(level)
-                val holder = ItemProvidedHolder(enchantLevel, itemStack)
+                if (enchantLevel.hasDisplayConditions()) {
+                    val holder = ItemProvidedHolder(enchantLevel, itemStack)
 
-                val enchantNotMetLines = holder.getNotMetLines(player).map { Display.PREFIX + it }
-                notMetLines.addAll(enchantNotMetLines)
+                    val enchantNotMetLines = holder.getNotMetLines(player).map { Display.PREFIX + it }
+                    notMetLines.addAll(enchantNotMetLines)
 
-                if (enchantNotMetLines.isNotEmpty() || holder.isShowingAnyNotMet(player)) {
-                    showNotMet = true
+                    if (enchantNotMetLines.isNotEmpty() || holder.isShowingAnyNotMet(player)) {
+                        showNotMet = true
+                    }
                 }
             }
 

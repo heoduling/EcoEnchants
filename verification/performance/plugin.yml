@@ -1,0 +1,6 @@
+name: OptCompare
+version: 1
+main: optcompare.OptCompare
+api-version: '1.21.11'
+folia-supported: true
+depend: [EcoEnchants, FXEnchant]

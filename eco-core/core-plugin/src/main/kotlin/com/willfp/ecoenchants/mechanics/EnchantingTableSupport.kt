@@ -71,7 +71,7 @@ object EnchantingTableSupport : Listener {
         // seed needs stable candidate order too, including rarity-group order.
         val pool = tableEnchantCandidates(player)
             .filter { it.canEnchant(item, emptyList()) }
-            .sortedWith(compareBy({ it.enchantment.key.namespace }, { it.enchantment.key.key }))
+            .sortedForEnchantingPreview()
 
         val offers = (0..2).map { index ->
             // A malformed/zero-weight rarity must not leave an empty button.
@@ -178,6 +178,14 @@ object EnchantingTableSupport : Listener {
 }
 
 private val toolTiers = setOf("wooden", "stone", "copper", "iron", "golden", "diamond", "netherite")
+
+internal fun List<AiyatsbusEnchantCandidate>.sortedForEnchantingPreview(): List<AiyatsbusEnchantCandidate> {
+    if (size < 2) return this
+    val keyed = mapTo(ArrayList(size)) { it.enchantment.key to it }
+    keyed.sortWith(compareBy({ it.first.namespace }, { it.first.key }))
+    return keyed.map { it.second }
+}
+
 private val toolClasses = setOf("sword", "pickaxe", "axe", "shovel", "hoe", "spear")
 private val armorTiers = setOf("leather", "chainmail", "copper", "iron", "golden", "diamond", "netherite", "turtle")
 private val armorClasses = setOf("helmet", "chestplate", "leggings", "boots")
